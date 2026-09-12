@@ -26,6 +26,7 @@ def get_host_info():
     return hostname, ip
 
 HOSTNAME, IP = get_host_info()
+
 cfg=load_config()
 port_num(8000)
 print("开始采集数据")
@@ -65,21 +66,21 @@ while True:
         print(f"触发 CPU 告警: 当前 {cpu}%，阈值 {cfg['CPU_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'cpu_use')
         advice = AI.ai_monitor('CPU', cpu, cfg['CPU_MAXUSE'], history_data)
-        log_alter(cfg.get('URL'), system_time, 'CPU', cpu, cfg['CPU_MAXUSE'], advice)
+        log_alter(cfg.get('URL'), system_time, f'CPU@{HOSTNAME}({IP})', cpu, cfg['CPU_MAXUSE'], advice)
         last_alert_time['cpu'] = time.time()
 
     if mem >= cfg['MEMORY_MAXUSE'] and (current_time - last_alert_time['mem']) >= cfg['ALTER_INTERVAL']:
         print(f"触发 内存 告警: 当前 {mem}%，阈值 {cfg['MEMORY_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'mem_use')  # 数据库字段是 mem_use
         advice = AI.ai_monitor('内存', mem, cfg['MEMORY_MAXUSE'], history_data)
-        log_alter(cfg.get('URL'), system_time, '内存', mem, cfg['MEMORY_MAXUSE'], advice)
+        log_alter(cfg.get('URL'), system_time, f'内存@{HOSTNAME}({IP})', mem, cfg['MEMORY_MAXUSE'], advice)
         last_alert_time['mem'] = time.time()
 
     if disk >= cfg['DISK_MAXUSE'] and (current_time - last_alert_time['disk']) >= cfg['ALTER_INTERVAL']:
         print(f"触发 磁盘 告警: 当前 {disk}%，阈值 {cfg['DISK_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'disk_use') # 数据库字段是 disk_use
         advice = AI.ai_monitor('磁盘', disk, cfg['DISK_MAXUSE'], history_data)
-        log_alter(cfg.get('URL'), system_time, '磁盘', disk, cfg['DISK_MAXUSE'], advice)
+        log_alter(cfg.get('URL'), system_time, f'磁盘@{HOSTNAME}({IP})', disk, cfg['DISK_MAXUSE'], advice)
         last_alert_time['disk'] = time.time()
 
     now = time.strftime('%Y-%m-%d %H:%M:%S')
