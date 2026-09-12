@@ -1,6 +1,8 @@
 import time
 import psutil
 import AI
+import socket
+import os
 
 from history import get_history
 from alter import log_alter
@@ -8,6 +10,22 @@ from mysql_config import insert_data
 from Prometheus_config import cpu_use_gauge, mem_use_gauge, disk_use_gauge, port_num
 from load_config import load_config
 
+
+def get_host_info():
+    """获取主机名和 IP，兼容本地 Windows 和 K8s 容器"""
+    # K8s 里优先用 NODE_NAME 环境变量（后面阶段 7 会用到）
+    hostname = os.getenv('NODE_NAME') or socket.gethostname()
+    try:
+        # 获取本机 IP（不会真的发包，只是拿路由表信息）
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = '127.0.0.1'
+    return hostname, ip
+
+HOSTNAME, IP = get_host_info()
 cfg=load_config()
 port_num(8000)
 print("开始采集数据")
@@ -64,7 +82,8 @@ while True:
         log_alter(cfg.get('URL'), system_time, '磁盘', disk, cfg['DISK_MAXUSE'], advice)
         last_alert_time['disk'] = time.time()
 
-    print(f"CPU: {cpu}% | 内存: {mem}% | 磁盘: {disk}%")
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{now}] [{HOSTNAME}] [{IP}] CPU: {cpu}% | 内存: {mem}% | 磁盘: {disk}%")
     time.sleep(cfg['INTERVAL'])
 
 
