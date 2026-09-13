@@ -33,7 +33,7 @@ def ai_monitor(resource, current_value, threshold, context_data):
     client = OpenAI(api_key=api_key, base_url=os.getenv('API_URL', 'https://api.deepseek.com/v1'))
     try:
         response = client.chat.completions.create(
-            model=os.getenv('MODEL_NAME', 'deepseek-reasoner'),
+            model=os.getenv('MODEL_NAME', 'deepseek-chat'),
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2048,
             timeout=15
