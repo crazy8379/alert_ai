@@ -7,9 +7,13 @@ import os
 from history import get_history
 from alter import log_alter
 from mysql_config import insert_data
-from Prometheus_config import cpu_use_gauge, mem_use_gauge, disk_use_gauge, port_num
+from Prometheus_config import cpu_use_gauge, mem_use_gauge, disk_use_gauge, port_num, start_health_server_async
 from load_config import load_config
 
+# K8s 里读宿主机的 /proc，本地 Windows 没这个环境变量，跳过
+if os.getenv('HOST_PROC'):
+    psutil.PROCFS_PATH = os.getenv('HOST_PROC')
+    print(f"[K8s] 已切换 psutil 读取路径为: {os.getenv('HOST_PROC')}")
 
 def get_host_info():
     """获取主机名和 IP，兼容本地 Windows 和 K8s 容器"""
@@ -29,6 +33,7 @@ HOSTNAME, IP = get_host_info()
 
 cfg=load_config()
 port_num(8000)
+start_health_server_async(8001)   # ← 新增：启动健康检查端口
 print("开始采集数据")
 print(f"[配置] ALTER_INTERVAL = {cfg['ALTER_INTERVAL']}")
 

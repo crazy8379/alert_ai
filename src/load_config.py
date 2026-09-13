@@ -30,7 +30,7 @@ def load_config():
         'MEMORY_MAXUSE': int(os.getenv('MEMORY_MAXUSE', '90')),
         'DISK_MAXUSE': int(os.getenv('DISK_MAXUSE', '80')),
         'INTERVAL': int(os.getenv('INTERVAL', '3')),
-        'DISK_PATH': os.getenv('DISK_PATH', 'C:\\'),
+        'DISK_PATH': os.getenv('DISK_PATH', '/host'),
         'MYSQL_HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
         'MYSQL_PORT': int(os.getenv('MYSQL_PORT', '3306')),
         'MYSQL_USER': os.getenv('MYSQL_USER', 'monitorer'),
