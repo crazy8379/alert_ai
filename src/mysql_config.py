@@ -9,7 +9,7 @@ def insert_data(cursor,conn,data):
     conn.commit()
 
     # ========== 数据清理：最多保留 1000 条 ==========
-    MAX_ROWS = 50
+    MAX_ROWS = 1000
 
     # 查一下当前总条数
     cursor.execute("SELECT COUNT(*) FROM metrics")
