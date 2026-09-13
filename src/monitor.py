@@ -83,8 +83,7 @@ while True:
         log_alter(cfg.get('URL'), system_time, f'磁盘@{HOSTNAME}({IP})', disk, cfg['DISK_MAXUSE'], advice)
         last_alert_time['disk'] = time.time()
 
-    now = time.strftime('%Y-%m-%d %H:%M:%S')
-    print(f"[{now}] [{HOSTNAME}] [{IP}] CPU: {cpu}% | 内存: {mem}% | 磁盘: {disk}%")
+    print(f"[{system_time}] [{HOSTNAME}] [{IP}] CPU: {cpu}% | 内存: {mem}% | 磁盘: {disk}%")
     time.sleep(cfg['INTERVAL'])
 
 
