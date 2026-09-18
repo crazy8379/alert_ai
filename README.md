@@ -21,6 +21,7 @@ system_monitor/
 │   ├── AI.py              # AI智能监控分析模块
 │   ├── Prometheus_config.py # Prometheus配置模块
 │   ├── alter.py           # 告警日志模块
+│   ├── diagnose.py        # 系统诊断模块
 │   ├── history.py         # 历史数据查询模块
 │   ├── load_config.py     # 配置加载模块
 │   ├── monitor.py         # 系统监控模块
@@ -67,6 +68,21 @@ log_alter(url, system_time, resource, current_value, threshold, advice=None)
 ```
 
 记录系统告警信息，包括资源名称、当前值、阈值和AI建议。
+
+### 系统诊断模块 (diagnose.py)
+
+```python
+_top_procs_by_cpu(n=5)           # 获取CPU占用最高进程
+_top_procs_by_mem(n=5)           # 获取内存占用最高进程
+_collect_disk_detail()           # 收集磁盘详细信息
+snapshot_cpu()                   # CPU快照
+snapshot_memory()                # 内存快照
+snapshot_disk()                  # 磁盘快照
+collect_snapshot(resource)       # 收集指定资源快照
+warmup()                         # 预热诊断模块
+```
+
+提供系统深度诊断功能，帮助分析资源使用情况和潜在问题。
 
 ### 历史数据模块 (history.py)
 
@@ -226,6 +242,13 @@ start_health_server(8001)
 ```python
 from src.alter import log_alter
 log_alter(url, system_time, resource, current_value, threshold, advice)
+```
+
+### 系统诊断
+
+```python
+from src.diagnose import collect_snapshot
+snapshot = collect_snapshot(resource)
 ```
 
 ### 获取历史数据
