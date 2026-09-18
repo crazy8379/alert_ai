@@ -43,47 +43,61 @@ system_monitor/
 ## 核心模块说明
 
 ### AI监控模块 (AI.py)
+
 ```python
 ai_monitor(resource, current_value, threshold, context_data)
 ```
+
 AI智能分析系统资源状态，提供智能监控建议。
 
 ### Prometheus配置模块 (Prometheus_config.py)
+
 ```python
 port_num(port=8000)              # 配置Prometheus服务端口
 start_health_server(port=8001)   # 启动健康检查服务器
 start_health_server_async(port=8001) # 异步启动健康检查服务器
 ```
+
 配置Prometheus指标暴露和健康检查服务。
 
 ### 告警模块 (alter.py)
+
 ```python
 log_alter(url, system_time, resource, current_value, threshold, advice=None)
 ```
+
 记录系统告警信息，包括资源名称、当前值、阈值和AI建议。
 
 ### 历史数据模块 (history.py)
+
 ```python
 get_history(cursor, resource, mi=10)
 ```
+
 查询指定资源的监控历史数据，默认获取最近10分钟数据。
 
 ### 配置加载模块 (load_config.py)
+
 ```python
 load_config()
 ```
+
 加载并解析项目配置，包括数据库连接、监控阈值等参数。
 
 ### 监控模块 (monitor.py)
+
 ```python
 get_host_info()
 ```
+
 获取主机系统信息，包括硬件配置和运行状态。
 
 ### 数据存储模块 (mysql_config.py)
+
 ```python
 insert_data(cursor, conn, data)
 ```
+
 将监控数据存储到MySQL数据库。
 
 ## 快速开始
@@ -97,23 +111,27 @@ insert_data(cursor, conn, data)
 ### 安装步骤
 
 1. 克隆项目到本地：
+
 ```bash
 git clone https://gitee.com/crayz123/system_monitor.git
 cd system_monitor
 ```
 
 2. 安装依赖：
+
 ```bash
 pip install -r requirements.txt
 ```
 
 3. 配置环境变量：
+
 ```bash
 cp .env.example .env
 # 编辑.env文件，配置数据库连接和其他参数
 ```
 
 4. 启动监控服务：
+
 ```bash
 python src/monitor.py
 ```
@@ -189,12 +207,14 @@ port_num(8000)  # 自定义端口
 ## API参考
 
 ### AI监控
+
 ```python
 from src.AI import ai_monitor
 result = ai_monitor(resource, current_value, threshold, context_data)
 ```
 
 ### Prometheus配置
+
 ```python
 from src.Prometheus_config import port_num, start_health_server
 port_num(8000)
@@ -202,30 +222,35 @@ start_health_server(8001)
 ```
 
 ### 告警日志
+
 ```python
 from src.alter import log_alter
 log_alter(url, system_time, resource, current_value, threshold, advice)
 ```
 
 ### 获取历史数据
+
 ```python
 from src.history import get_history
 history_data = get_history(cursor, resource, mi=10)
 ```
 
 ### 系统监控
+
 ```python
 from src.monitor import get_host_info
 host_info = get_host_info()
 ```
 
 ### 数据存储
+
 ```python
 from src.mysql_config import insert_data
 insert_data(cursor, conn, data)
 ```
 
 ### 配置加载
+
 ```python
 from src.load_config import load_config
 config = load_config()
