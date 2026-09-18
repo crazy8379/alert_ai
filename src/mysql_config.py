@@ -6,6 +6,11 @@ mysql_config.py — 数据写入模块
   - 超过 MAX_ROWS 时批量删除最旧记录
 """
 def insert_data(cursor, conn, data):
+    try:
+        conn.ping(reconnect=True)   # ← 加这两行
+    except Exception:
+        pass
+
     sql = """
         insert into metrics 
         (timestamp, cpu_use, mem_use, disk_use, 
@@ -20,7 +25,7 @@ def insert_data(cursor, conn, data):
     ))
     conn.commit()
     """"""
-    # ========== 数据清理：最多保留 1000 条 ==========
+    # ========== 数据清理：最多保留 100 条 ==========
     MAX_ROWS = 100
 
     cursor.execute("SELECT COUNT(*) FROM metrics")
