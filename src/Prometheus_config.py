@@ -5,6 +5,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 cpu_use_gauge = prometheus_client.Gauge("cpu_use_gauge", "cpu使用率")
 mem_use_gauge = prometheus_client.Gauge("mem_use_gauge", "mem使用率")
 disk_use_gauge = prometheus_client.Gauge("disk_use_gauge", "disk使用率")
+swap_use_gauge = prometheus_client.Gauge("swap_use_gauge", "swap使用率")
+disk_read_gauge = prometheus_client.Gauge("disk_read_gauge", "磁盘读MB/s")
+disk_write_gauge = prometheus_client.Gauge("disk_write_gauge", "磁盘写MB/s")
+net_send_gauge = prometheus_client.Gauge("net_send_gauge", "网络发送MB/s")
+net_recv_gauge = prometheus_client.Gauge("net_recv_gauge", "网络接收MB/s")
 
 def port_num(port=8000):
     prometheus_client.start_http_server(port)

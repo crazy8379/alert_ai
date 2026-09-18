@@ -1,15 +1,21 @@
-def insert_data(cursor,conn,data):
-    sql= """
-        insert into metrics (timestamp,cpu_use,mem_use,disk_use)
-        values (%s,%s,%s,%s)
+def insert_data(cursor, conn, data):
+    sql = """
+        insert into metrics 
+        (timestamp, cpu_use, mem_use, disk_use, 
+          swap_use, disk_read, disk_write, net_send, net_recv)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-    cursor.execute(sql,(
-        data['timestamp'],data['cpu_use'], data['mem_use'], data['disk_use']
+    cursor.execute(sql, (
+        data['timestamp'], data['cpu_use'], data['mem_use'], data['disk_use'],
+        data['swap_use'],
+        data['disk_read'], data['disk_write'],
+        data['net_send'], data['net_recv'],
     ))
     conn.commit()
+    # 后面的清理逻辑不动
 
     # ========== 数据清理：最多保留 1000 条 ==========
-    MAX_ROWS = 1000
+    MAX_ROWS = 100
 
     # 查一下当前总条数
     cursor.execute("SELECT COUNT(*) FROM metrics")
