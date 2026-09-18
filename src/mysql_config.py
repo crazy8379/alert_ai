@@ -1,10 +1,3 @@
-"""
-mysql_config.py — 数据写入模块
-
-职责:
-  - INSERT 数据到 metrics 表
-  - 超过 MAX_ROWS 时批量删除最旧记录
-"""
 def insert_data(cursor, conn, data):
     sql = """
         insert into metrics 
@@ -19,14 +12,18 @@ def insert_data(cursor, conn, data):
         data['net_send'], data['net_recv'],
     ))
     conn.commit()
+    # 后面的清理逻辑不动
 
     # ========== 数据清理：最多保留 1000 条 ==========
     MAX_ROWS = 100
 
+    # 查一下当前总条数
     cursor.execute("SELECT COUNT(*) FROM metrics")
     count = cursor.fetchone()[0]
 
     if count > MAX_ROWS:
+        # 删除最旧的 (count - MAX_ROWS + 10) 条
+        # 说明：+10 是为了"批量删除"，一次多删 10 条，减少清理频率
         delete_count = count - MAX_ROWS + 10
         cursor.execute(
             f"DELETE FROM metrics ORDER BY id ASC LIMIT {delete_count}"
