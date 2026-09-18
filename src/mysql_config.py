@@ -23,7 +23,7 @@ def insert_data(cursor, conn, data):
         data['net_send'], data['net_recv'],
     ))
     conn.commit()
-
+    """"""
     # ========== 数据清理：最多保留 1000 条 ==========
     MAX_ROWS = 100
 

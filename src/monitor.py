@@ -27,7 +27,7 @@ from Prometheus_config import (
 )
 from load_config import load_config
 
-
+""""""
 # ========== K8s 环境下读宿主机 /proc ==========
 if os.getenv('HOST_PROC'):
     psutil.PROCFS_PATH = os.getenv('HOST_PROC')
