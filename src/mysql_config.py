@@ -6,10 +6,6 @@ mysql_config.py — 数据写入模块
   - 超过 MAX_ROWS 时批量删除最旧记录
 """
 def insert_data(cursor, conn, data):
-    try:
-        conn.ping(reconnect=True)   # ← 断线自动重连
-    except Exception:
-        pass  # 如果重连失败，下面的 execute 会报错，被 monitor.py 的 try 接住
     sql = """
         insert into metrics 
         (timestamp, cpu_use, mem_use, disk_use, 
