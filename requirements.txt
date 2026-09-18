@@ -1,4 +1,5 @@
 psutil
+cryptography  
 prometheus_client
 pymysql
 python-dotenv

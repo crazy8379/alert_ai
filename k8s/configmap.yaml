@@ -11,7 +11,7 @@ data:
   ALTER_INTERVAL: "600"
   DISK_PATH: "/host"
   HOST_PROC: "/host/proc"
-  MYSQL_HOST: "10.11.135.211"
+  MYSQL_HOST: "10.15.204.112"
   MYSQL_PORT: "3306"
   MYSQL_USER: "monitorer"
   MYSQL_DB: "system_monitor"
