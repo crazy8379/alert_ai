@@ -56,24 +56,30 @@ _prev_disk_time = None
 
 
 def _collect_disk_detail():
-    """采集磁盘 IOPS + %util + 吞吐（两次采样求差）"""
-    global _prev_disk_io, _prev_disk_time
+    """每次调用时重新采样（sleep 1 秒做两次差值）"""
     result = {'iops_read': 0, 'iops_write': 0, 'util': 0, 'read_mb': 0, 'write_mb': 0}
     try:
-        now = time.time()
-        io = psutil.disk_io_counters()
-        if _prev_disk_io and _prev_disk_time:
-            interval = now - _prev_disk_time
-            if interval > 0:
-                result['iops_read'] = (io.read_count - _prev_disk_io.read_count) / interval
-                result['iops_write'] = (io.write_count - _prev_disk_io.write_count) / interval
-                result['read_mb'] = (io.read_bytes - _prev_disk_io.read_bytes) / 1024 / 1024 / interval
-                result['write_mb'] = (io.write_bytes - _prev_disk_io.write_bytes) / 1024 / 1024 / interval
-                if hasattr(io, 'busy_time') and hasattr(_prev_disk_io, 'busy_time'):
-                    busy_ms = io.busy_time - _prev_disk_io.busy_time
-                    result['util'] = min(busy_ms / (interval * 1000) * 100, 100)
-        _prev_disk_io = io
-        _prev_disk_time = now
+        io1 = psutil.disk_io_counters()
+        t1 = time.time()
+        if io1 is None:
+            return result
+
+        time.sleep(1)   # 等 1 秒
+
+        io2 = psutil.disk_io_counters()
+        t2 = time.time()
+        if io2 is None:
+            return result
+
+        interval = t2 - t1
+        if interval > 0:
+            result['iops_read'] = (io2.read_count - io1.read_count) / interval
+            result['iops_write'] = (io2.write_count - io1.write_count) / interval
+            result['read_mb'] = (io2.read_bytes - io1.read_bytes) / 1024 / 1024 / interval
+            result['write_mb'] = (io2.write_bytes - io1.write_bytes) / 1024 / 1024 / interval
+            if hasattr(io2, 'busy_time') and hasattr(io1, 'busy_time'):
+                busy_ms = io2.busy_time - io1.busy_time
+                result['util'] = min(busy_ms / (interval * 1000) * 100, 100)
     except Exception:
         pass
     return result
@@ -220,6 +226,14 @@ def warmup():
         psutil.cpu_times_percent(interval=None)
     except Exception:
         pass
+
+    # ← 新增：预热进程 CPU
+    try:
+        for _ in psutil.process_iter(['cpu_percent']):
+            pass
+    except Exception:
+        pass
+
     try:
         _collect_disk_detail()
     except Exception:
