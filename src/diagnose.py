@@ -49,12 +49,6 @@ def _top_procs_by_mem(n=5):
     return procs[:n]
 
 
-# ========== 磁盘 IO 差值 ==========
-
-_prev_disk_io = None
-_prev_disk_time = None
-
-
 def _collect_disk_detail():
     """每次调用时重新采样（内部 sleep 1 秒做差值）"""
     result = {'iops_read': 0, 'iops_write': 0, 'util': 0, 'read_mb': 0, 'write_mb': 0}
@@ -207,16 +201,45 @@ SNAPSHOT_FUNCS = {
 }
 
 
-def collect_snapshot(resource):
-    """根据资源类型采集对应场景快照"""
+def collect_snapshot(resource, current_metrics=None):
+    """
+    根据资源类型采集对应场景快照
+
+    参数:
+        resource: 'CPU' / '内存' / '磁盘'
+        current_metrics: dict，当前所有基础指标（可选）
+                         {'cpu': 92.1, 'mem': 88.5, 'disk': 92.0, 'swap': 45.2,
+                          'disk_read': 0.5, 'disk_write': 28.3,
+                          'net_send': 0.1, 'net_recv': 0.3}
+    """
     func = SNAPSHOT_FUNCS.get(resource)
     if not func:
         return f"[未知资源类型: {resource}]"
+
     try:
-        return func()
+        # 1. 场景化详细快照
+        detail = func()
+
+        # 2. 全局基础指标（如果传入了）
+        if current_metrics:
+            base = _format_base_metrics(current_metrics)
+            return base + "\n\n" + detail
+
+        return detail
     except Exception as e:
         return f"[快照采集异常: {e}]"
 
+def _format_base_metrics(m):
+    """格式化全局基础指标，紧凑一行"""
+    return (
+        "【基础指标】"
+        f"CPU {m.get('cpu', 0):.1f}% | "
+        f"内存 {m.get('mem', 0):.1f}% | "
+        f"磁盘 {m.get('disk', 0):.1f}% | "
+        f"Swap {m.get('swap', 0):.1f}% | "
+        f"IO 读{m.get('disk_read', 0):.1f}/写{m.get('disk_write', 0):.1f}MB/s | "
+        f"网络 发{m.get('net_send', 0):.1f}/收{m.get('net_recv', 0):.1f}MB/s"
+    )
 
 def warmup():
     """预热：让第一次采集就有值"""
