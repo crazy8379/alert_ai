@@ -25,7 +25,7 @@ spec:
       - operator: Exists
       containers:
       - name: monitor
-        image: crpi-l986bg1ovxy9r4lx.cn-hongkong.personal.cr.aliyuncs.com/nginx_laoli/monitor:v5
+        image: crpi-l986bg1ovxy9r4lx.cn-hongkong.personal.cr.aliyuncs.com/nginx_laoli/monitor:v7
         envFrom:
         - configMapRef:
             name: monitor-config
