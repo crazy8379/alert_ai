@@ -1,5 +1,3 @@
-
-
 # System Monitor
 
 一个基于AI智能分析的系统监控项目，支持实时资源监控、Prometheus集成、MySQL数据存储和智能告警功能。
@@ -46,7 +44,7 @@ system_monitor/
 ### AI监控模块 (AI.py)
 
 ```python
-ai_monitor(resource, current_value, threshold, context_data)
+ai_monitor(resource, current_value, threshold, context_data, snapshot="")
 ```
 
 AI智能分析系统资源状态，提供智能监控建议。
@@ -64,7 +62,7 @@ start_health_server_async(port=8001) # 异步启动健康检查服务器
 ### 告警模块 (alter.py)
 
 ```python
-log_alter(url, system_time, resource, current_value, threshold, advice=None)
+log_alter(url, system_time, resource, current_value, threshold, advice=None, diag=None)
 ```
 
 记录系统告警信息，包括资源名称、当前值、阈值和AI建议。
@@ -78,7 +76,7 @@ _collect_disk_detail()           # 收集磁盘详细信息
 snapshot_cpu()                   # CPU快照
 snapshot_memory()                # 内存快照
 snapshot_disk()                  # 磁盘快照
-collect_snapshot(resource)       # 收集指定资源快照
+collect_snapshot(resource, current_metrics=None) # 收集指定资源快照
 warmup()                         # 预热诊断模块
 ```
 
@@ -103,7 +101,8 @@ load_config()
 ### 监控模块 (monitor.py)
 
 ```python
-get_host_info()
+get_host_info()  # 获取主机系统信息
+send_alert_async(url, system_time, resource, current_value, threshold, history_data, snapshot) # 异步发送告警
 ```
 
 获取主机系统信息，包括硬件配置和运行状态。
