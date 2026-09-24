@@ -25,8 +25,8 @@ def insert_data(cursor, conn, data):
     ))
     conn.commit()
     """"""
-    # ========== 数据清理：最多保留 100 条 ==========
-    MAX_ROWS = 100
+    # ========== 数据清理：最多保留 500 条 ==========
+    MAX_ROWS = 500
 
     cursor.execute("SELECT COUNT(*) FROM metrics")
     count = cursor.fetchone()[0]
