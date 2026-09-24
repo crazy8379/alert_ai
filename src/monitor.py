@@ -77,6 +77,8 @@ print(f"[配置] ALTER_INTERVAL = {cfg['ALTER_INTERVAL']}")
 warmup()
 
 last_alert_time = {'cpu': 0.0, 'mem': 0.0, 'disk': 0.0}
+# 连续超阈值计数器（用于 CPU 告警过滤瞬时波动）
+over_count = {'cpu': 0, 'mem': 0, 'disk': 0}
 
 # IO 速率两次采样求差
 _prev_disk_io = None
@@ -92,11 +94,27 @@ while True:
     disk = psutil.disk_usage(cfg['DISK_PATH']).percent
     swap = psutil.swap_memory().percent
 
+    # ========== 更新连续超阈值计数 ==========
+    if cpu >= cfg['CPU_MAXUSE']:
+        over_count['cpu'] += 1
+    else:
+        over_count['cpu'] = 0
+
+    if mem >= cfg['MEMORY_MAXUSE']:
+        over_count['mem'] += 1
+    else:
+        over_count['mem'] = 0
+
+    if disk >= cfg['DISK_MAXUSE']:
+        over_count['disk'] += 1
+    else:
+        over_count['disk'] = 0
+
     now = time.time()
     disk_io = psutil.disk_io_counters()
     net_io = psutil.net_io_counters()
 
-    if _prev_disk_io and _prev_io_time:
+    if disk_io and net_io and _prev_disk_io and _prev_net_io and _prev_io_time:
         interval = now - _prev_io_time
         if interval > 0:
             disk_read = (disk_io.read_bytes - _prev_disk_io.read_bytes) / 1024 / 1024 / interval
@@ -143,26 +161,48 @@ while True:
     # ========== 告警逻辑（异步）==========
     current_time = time.time()
 
-    if cpu >= cfg['CPU_MAXUSE'] and (current_time - last_alert_time['cpu']) >= cfg['ALTER_INTERVAL']:
-        print(f"触发 CPU 告警: 当前 {cpu}%，阈值 {cfg['CPU_MAXUSE']}%")
+    # --- CPU 告警：连续 3 次超阈值才告警 ---
+    if (over_count['cpu'] >= 3
+            and (current_time - last_alert_time['cpu']) >= cfg['ALTER_INTERVAL']):
+        print(f"触发 CPU 告警: 当前 {cpu}%（连续 {over_count['cpu']} 次超阈值），阈值 {cfg['CPU_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'cpu_use')
-        snapshot = collect_snapshot('CPU')
+        snapshot = collect_snapshot('CPU', {
+            'cpu': cpu, 'mem': mem, 'disk': disk, 'swap': swap,
+            'disk_read': disk_read, 'disk_write': disk_write,
+            'net_send': net_send, 'net_recv': net_recv,
+        })
         send_alert_async(cfg.get('URL'), system_time, f'CPU@{HOSTNAME}({IP})',
                          cpu, cfg['CPU_MAXUSE'], history_data, snapshot)
         last_alert_time['cpu'] = current_time
 
-    if mem >= cfg['MEMORY_MAXUSE'] and (current_time - last_alert_time['mem']) >= cfg['ALTER_INTERVAL']:
+    # --- 内存告警：超阈值 + Swap 使用中（若系统有 Swap）---
+    swap_total = psutil.swap_memory().total
+    swap_in_use = swap_total > 0 and swap > 0   # 有 swap 且已被使用
+
+    if (mem >= cfg['MEMORY_MAXUSE']
+            and (swap_in_use or swap_total == 0)
+            and (current_time - last_alert_time['mem']) >= cfg['ALTER_INTERVAL']):
         print(f"触发 内存 告警: 当前 {mem}%，阈值 {cfg['MEMORY_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'mem_use')
-        snapshot = collect_snapshot('内存')
+        snapshot = collect_snapshot('内存', {
+            'cpu': cpu, 'mem': mem, 'disk': disk, 'swap': swap,
+            'disk_read': disk_read, 'disk_write': disk_write,
+            'net_send': net_send, 'net_recv': net_recv,
+        })
         send_alert_async(cfg.get('URL'), system_time, f'内存@{HOSTNAME}({IP})',
                          mem, cfg['MEMORY_MAXUSE'], history_data, snapshot)
         last_alert_time['mem'] = current_time
 
-    if disk >= cfg['DISK_MAXUSE'] and (current_time - last_alert_time['disk']) >= cfg['ALTER_INTERVAL']:
+    # --- 磁盘告警：超阈值就告警 ---
+    if (disk >= cfg['DISK_MAXUSE']
+            and (current_time - last_alert_time['disk']) >= cfg['ALTER_INTERVAL']):
         print(f"触发 磁盘 告警: 当前 {disk}%，阈值 {cfg['DISK_MAXUSE']}%")
         history_data = get_history(cfg.get('cursor'), 'disk_use')
-        snapshot = collect_snapshot('磁盘')
+        snapshot = collect_snapshot('磁盘', {
+            'cpu': cpu, 'mem': mem, 'disk': disk, 'swap': swap,
+            'disk_read': disk_read, 'disk_write': disk_write,
+            'net_send': net_send, 'net_recv': net_recv,
+        })
         send_alert_async(cfg.get('URL'), system_time, f'磁盘@{HOSTNAME}({IP})',
                          disk, cfg['DISK_MAXUSE'], history_data, snapshot)
         last_alert_time['disk'] = current_time
