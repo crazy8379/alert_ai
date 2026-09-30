@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 虚拟环境
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# 敏感信息（绝对不能推）
+.env
+*.key
+*.pem
+git --version
+# 日志
+*.log
