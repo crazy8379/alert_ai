@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-ai-config
+  namespace: default
+data:
+  PROM_URL: "http://192.168.31.58:9090"
+  API_URL: "https://api.deepseek.com/v1"
+  MODEL_NAME: "deepseek-chat"
+  AI_TIMEOUT: "30"
+  AI_MAX_TOKENS: "2048"
+  AI_TEMPERATURE: "0.3"
+  COOLDOWN: "300"
+  WEBHOOK_PORT: "8080"
+  SNAPSHOT_N: "5"
+  SNAPSHOT_STEP: "30"
+  PROM_TIMEOUT: "10"
