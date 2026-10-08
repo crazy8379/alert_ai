@@ -2,6 +2,7 @@
 import os
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 
@@ -31,6 +32,10 @@ class Settings:
         # 快照
         self.SNAPSHOT_N = int(os.getenv('SNAPSHOT_N', '5'))
         self.SNAPSHOT_STEP = int(os.getenv('SNAPSHOT_STEP', '30'))
+
+        # RAG
+        self.RAG_DB_PATH = os.getenv('RAG_DB_PATH', './rag_data')
+        self.RAG_TOP_K = int(os.getenv('RAG_TOP_K', '3'))
 
 
 settings = Settings()
