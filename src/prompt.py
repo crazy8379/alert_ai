@@ -13,9 +13,9 @@ def _format_snapshots(snapshots: list[dict]) -> str:
     return '\n'.join(lines)
 
 
-def build_prompt(scenario: str, alert: Alert, snapshots: list[dict]) -> str:
+def build_prompt(scenario: str, alert: Alert, snapshots: list[dict], context: str = "") -> str:
     builder = _BUILDERS.get(scenario)
-    return builder(alert, snapshots) if builder else ''
+    return builder(alert, snapshots, context) if builder else ''
 
 
 def _header(alert: Alert) -> str:
@@ -26,8 +26,11 @@ def _header(alert: Alert) -> str:
     )
 
 
-def _build_cpu_prompt(alert: Alert, snapshots: list[dict]) -> str:
+def _build_cpu_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条 CPU 告警。
+
+【历史相似处理方案（向量检索）】
+{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
@@ -59,8 +62,11 @@ def _build_cpu_prompt(alert: Alert, snapshots: list[dict]) -> str:
 """
 
 
-def _build_memory_prompt(alert: Alert, snapshots: list[dict]) -> str:
+def _build_memory_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条内存告警。
+
+【历史相似处理方案（向量检索）】
+{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
@@ -92,8 +98,11 @@ def _build_memory_prompt(alert: Alert, snapshots: list[dict]) -> str:
 """
 
 
-def _build_disk_prompt(alert: Alert, snapshots: list[dict]) -> str:
+def _build_disk_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条磁盘告警。
+
+【历史相似处理方案（向量检索）】
+{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
