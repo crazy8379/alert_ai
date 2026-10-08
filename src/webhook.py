@@ -6,6 +6,8 @@ from prompt import build_prompt
 from ai import analyze
 from notifier import push_wecom
 
+from config import settings                       # ← 新增
+from rag import rag_service
 
 def process_alerts(data: dict) -> None:
     alerts = data.get('alerts', []) or []
@@ -39,8 +41,14 @@ def handle_one(raw: dict) -> None:
     snapshots = get_snapshots(alert.instance, alert.scenario)
     print(f'[prom] 拉到 {len(snapshots)} 个时间点')
 
+    # >>>>>> 新增：向量语义检索 <<<<<<
+    # 构造检索 query：用告警名称 + 摘要 + 场景，这是最能代表当前故障的文本
+    query = f"{alert.alertname} {alert.scenario} {alert.summary}"
+    context = rag_service.retrieve(query, k=settings.RAG_TOP_K)
+    print(f'[rag] 向量检索命中，上下文长度: {len(context)}')
+
     # 4. 组装 prompt
-    prompt = build_prompt(alert.scenario, alert, snapshots)
+    prompt = build_prompt(alert.scenario, alert, snapshots, context)
 
     # 5. 调 AI
     advice = analyze(prompt)
