@@ -99,4 +99,4 @@ system_monitor/
 
 ## 许可证
 
-MIT License
+MIT 许可证
