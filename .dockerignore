@@ -1,0 +1,13 @@
+.venv/
+venv/
+.git/
+.gitignore
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.log
+test_alert.json
+k8s/
+README.md
+README.en.md
