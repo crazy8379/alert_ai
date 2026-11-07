@@ -15,11 +15,6 @@ venv/
 .env
 *.key
 *.pem
-git --version
+
 # 日志
 *.log
-
-# RAG 向量库运行时数据
-rag_data/
-src/rag_data/
-*.sqlite3
