@@ -1,25 +1,18 @@
 
 # main.py
-from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi import FastAPI, Request
 import uvicorn
 from config import settings
 from webhook import process_alerts
-from rag import rag_service  # 导入
 
 app = FastAPI(title='Alert AI 诊断中心')
 
-@app.on_event("startup")
-async def startup_event():
-    # 启动时自动构建（或增量更新）向量知识库
-    print("[main] 正在构建向量知识库...")
-    rag_service.build_knowledge_base()
-
 @app.post('/webhook')
-async def webhook(request: Request, background_tasks: BackgroundTasks):
-    """接收 Alertmanager 告警，立即返回 200"""
+async def webhook(request: Request):
+    """接收 Alertmanager 告警，快速入队后返回。"""
     data = await request.json()
-    background_tasks.add_task(process_alerts, data)
-    return {'status': 'ok'}
+    accepted = process_alerts(data)
+    return {'status': 'accepted', 'accepted': accepted}
 
 
 @app.get('/healthz')
