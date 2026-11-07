@@ -4,12 +4,12 @@
       "status": "firing",
       "labels": {
         "alertname": "HostHighCpuLoad",
-        "instance": "192.168.31.58:9100",
+        "instance": "db3",
         "scenario": "cpu",
         "severity": "warning"
       },
       "annotations": {
-        "summary": "CPU 使用率ss过高"
+        "summary": "CPU 使用率过高"
       },
       "fingerprint": "test-cpu-001"
     }
