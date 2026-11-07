@@ -10,6 +10,7 @@ class Alert:
     scenario: str = ''
     severity: str = ''
     summary: str = ''
+    description: str = ''
     fingerprint: str = ''
 
     @classmethod
@@ -23,5 +24,6 @@ class Alert:
             scenario=(labels.get('scenario') or '').lower(),
             severity=labels.get('severity') or '',
             summary=annotations.get('summary') or '',
+            description=annotations.get('description') or '',
             fingerprint=raw.get('fingerprint') or '',
         )
