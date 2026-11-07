@@ -13,9 +13,9 @@ def _format_snapshots(snapshots: list[dict]) -> str:
     return '\n'.join(lines)
 
 
-def build_prompt(scenario: str, alert: Alert, snapshots: list[dict], context: str = "") -> str:
+def build_prompt(scenario: str, alert: Alert, snapshots: list[dict]) -> str:
     builder = _BUILDERS.get(scenario)
-    return builder(alert, snapshots, context) if builder else ''
+    return builder(alert, snapshots) if builder else ''
 
 
 def _header(alert: Alert) -> str:
@@ -26,11 +26,8 @@ def _header(alert: Alert) -> str:
     )
 
 
-def _build_cpu_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
+def _build_cpu_prompt(alert: Alert, snapshots: list[dict]) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条 CPU 告警。
-
-【历史相似处理方案（向量检索）】
-{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
@@ -43,7 +40,7 @@ def _build_cpu_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
 一句话判断：需要立即处理 / 需要关注 / 可观察。给出依据。
 
 **二、趋势与预测**
-判断是"持续高负载"还是"瞬时抖动"；结合 Load 和 wa 判断是计算瓶颈还是 IO 瓶颈。
+判断是"持续高负载"还是"瞬时抖动"；结合 Load、wa 和网络流量判断是计算瓶颈、IO 瓶颈还是流量压力。
 
 **三、最可能的原因（1~2 个）**
 结合 Top CPU 进程的演变趋势，指出主要贡献者。
@@ -62,11 +59,8 @@ def _build_cpu_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
 """
 
 
-def _build_memory_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
+def _build_memory_prompt(alert: Alert, snapshots: list[dict]) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条内存告警。
-
-【历史相似处理方案（向量检索）】
-{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
@@ -79,7 +73,7 @@ def _build_memory_prompt(alert: Alert, snapshots: list[dict], context: str) -> s
 一句话判断。
 
 **二、趋势与预测**
-判断是"缓慢泄漏（持续上升）"还是"短期波动"。结合 Swap 判断是真实内存不足还是文件缓存。
+判断是"缓慢泄漏（持续上升）"还是"短期波动"。结合 Swap 和网络流量判断是真实内存不足、文件缓存还是流量压力。
 
 **三、最可能的原因（1~2 个）**
 结合 Top 内存进程的演变趋势。
@@ -98,11 +92,8 @@ def _build_memory_prompt(alert: Alert, snapshots: list[dict], context: str) -> s
 """
 
 
-def _build_disk_prompt(alert: Alert, snapshots: list[dict], context: str) -> str:
+def _build_disk_prompt(alert: Alert, snapshots: list[dict]) -> str:
     return f"""你是资深 Linux 系统运维专家，正在处理一条磁盘告警。
-
-【历史相似处理方案（向量检索）】
-{context or '无历史相似案例。'}
 
 【告警信息】
 {_header(alert)}
@@ -134,6 +125,67 @@ def _build_disk_prompt(alert: Alert, snapshots: list[dict], context: str) -> str
 - 优先保证"紧急程度"和"趋势预测"完整
 - 总长度 500 字以内
 """
+
+
+def _alerts_header(alerts: list[Alert]) -> str:
+    alert = alerts[0]
+    lines = [f'- 节点: {alert.instance}']
+    for a in alerts:
+        line = f'- 告警: {a.alertname} | 场景: {a.scenario} | 严重度: {a.severity}'
+        if a.summary:
+            line += f' | 摘要: {a.summary}'
+        lines.append(line)
+    return '\n'.join(lines)
+
+
+def build_combined_prompt(alerts: list[Alert], snapshots: dict[str, list[dict]]) -> str:
+    if not alerts:
+        return ''
+
+    parts = [
+        '你是资深 Linux 系统运维专家，正在处理同一节点的一组相关告警。',
+        '',
+        '【告警信息】',
+        _alerts_header(alerts),
+        '',
+    ]
+
+    sections = [
+        ('cpu', 'CPU 快照序列'),
+        ('memory', '内存快照序列'),
+        ('disk', '磁盘快照序列'),
+    ]
+    for scenario, title in sections:
+        if snapshots.get(scenario):
+            parts.append(f'【{title}】')
+            parts.append(_format_snapshots(snapshots[scenario]))
+            parts.append('')
+
+    parts += [
+        '【你的任务（严格按此顺序输出）】',
+        '',
+        '**一、紧急程度**',
+        '一句话判断整体风险。',
+        '',
+        '**二、跨场景关联分析**',
+        '重点判断 CPU、内存、磁盘、网络流量之间是否存在相互影响；不要孤立看单个告警。',
+        '如果网络吞吐明显升高，要判断是否为流量型压力。',
+        '',
+        '**三、最可能的原因（1~2 个）**',
+        '',
+        '**四、排查命令**',
+        '按顺序编号，每个命令用代码块包裹。',
+        '',
+        '**五、处置建议**',
+        '- 临时缓解：1~2 条',
+        '- 长期解决：1~2 条',
+        '',
+        '【输出要求】',
+        '- 用中文，Markdown 格式',
+        '- 严格使用上述五个标题',
+        '- 总长度 600 字以内',
+    ]
+    return '\n'.join(parts)
 
 
 _BUILDERS = {
