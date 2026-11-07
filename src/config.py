@@ -23,19 +23,29 @@ class Settings:
         # 企业微信
         self.WECOM_URL = os.getenv('WECOM_URL', '')
 
-        # 去重
-        self.COOLDOWN = int(os.getenv('COOLDOWN', '300'))
-
         # 服务
         self.WEBHOOK_PORT = int(os.getenv('WEBHOOK_PORT', '8080'))
 
-        # 快照
-        self.SNAPSHOT_N = int(os.getenv('SNAPSHOT_N', '5'))
-        self.SNAPSHOT_STEP = int(os.getenv('SNAPSHOT_STEP', '30'))
+        # 两段式通知并发
+        self.NOTIFY_WORKERS = int(os.getenv('NOTIFY_WORKERS', '4'))
+        self.ANALYSIS_WORKERS = int(os.getenv('ANALYSIS_WORKERS', '2'))
 
-        # RAG
-        self.RAG_DB_PATH = os.getenv('RAG_DB_PATH', './rag_data')
-        self.RAG_TOP_K = int(os.getenv('RAG_TOP_K', '3'))
+        # 快照
+        # CPU/内存使用非均匀时间点，单位为秒前
+        raw_offsets = os.getenv(
+            'SNAPSHOT_CPU_MEM_OFFSETS',
+            '600,300,180,60,30,0',
+        )
+        self.SNAPSHOT_CPU_MEM_OFFSETS = tuple(
+            sorted(
+                {int(item.strip()) for item in raw_offsets.split(',') if item.strip()},
+                reverse=True,
+            )
+        )
+        # 磁盘使用均匀窗口
+        self.SNAPSHOT_DELAY = int(os.getenv('SNAPSHOT_DELAY', '30'))
+        self.SNAPSHOT_DISK_N = int(os.getenv('SNAPSHOT_DISK_N', '7'))
+        self.SNAPSHOT_DISK_STEP = int(os.getenv('SNAPSHOT_DISK_STEP', '600'))
 
 
 settings = Settings()
