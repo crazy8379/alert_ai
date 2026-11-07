@@ -1,8 +1,8 @@
 """
 prom_client.py — 从 Prometheus 拉场景快照
 
-对外接口与旧 node_client.get_snapshots 兼容：
-  get_snapshots(instance, scenario, n=5, step=30)
+对外接口：
+  get_snapshots(instance, scenario, offsets=None)
   → [{'timestamp': '...', 'content': '多行文本'}, ...]
 
 instance 形如 '10.0.0.1:9100'（node_exporter 的 target）
@@ -40,6 +40,13 @@ def _scalar(promql: str, t: float | None = None, default: float = 0.0) -> float:
         return float(res[0]['value'][1])
     except (KeyError, IndexError, ValueError, TypeError):
         return default
+
+
+def _first_value(res: list[dict]) -> float | None:
+    try:
+        return float(res[0]['value'][1])
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None
 
 
 def _has_process_exporter(instance: str, t: float) -> bool:
@@ -235,6 +242,44 @@ def _disk_snapshot(instance: str, t: float) -> str:
     return '\n'.join(lines)
 
 
+# ============ 通用附加信息：网络流量 ============
+
+_NETWORK_FILTER = (
+    'device!~"lo|veth.*|docker.*|br-.*|virbr.*|vnet.*|tap.*|cali.*|flannel.*"'
+)
+
+
+def _network_snapshot(instance: str, t: float) -> str:
+    """所有场景默认附带网络吞吐，便于判断是否是流量型压力。"""
+    rx_res = _query(
+        f'sum(rate(node_network_receive_bytes_total'
+        f'{{instance="{instance}",{_NETWORK_FILTER}}}[1m])) / 1024 / 1024',
+        t,
+    )
+    tx_res = _query(
+        f'sum(rate(node_network_transmit_bytes_total'
+        f'{{instance="{instance}",{_NETWORK_FILTER}}}[1m])) / 1024 / 1024',
+        t,
+    )
+    if not rx_res and not tx_res:
+        return ''
+
+    rx = _first_value(rx_res)
+    tx = _first_value(tx_res)
+    if rx is None and tx is None:
+        return ''
+
+    rx_text = f'{rx:.2f}' if rx is not None else '未知'
+    tx_text = f'{tx:.2f}' if tx is not None else '未知'
+    lines = [
+        '【网络流量】',
+        f'接收: {rx_text} MB/s  发送: {tx_text} MB/s',
+    ]
+    if rx is not None and tx is not None:
+        lines.append(f'合计: {rx + tx:.2f} MB/s')
+    return '\n'.join(lines)
+
+
 # ============ 对外接口 ============
 
 _SCENARIO_FUNCS = {
@@ -251,23 +296,54 @@ def get_snapshots(
     scenario: str,
     n: int | None = None,
     step: int | None = None,
+    offsets: tuple[int, ...] | None = None,
 ) -> list[dict]:
     func = _SCENARIO_FUNCS.get(scenario)
     if not func:
         return []
 
-    n = n or settings.SNAPSHOT_N
-    step = step or settings.SNAPSHOT_STEP
     now = time.time()
 
+    if offsets:
+        # 显式时间点：offsets 是“多少秒前”，按从旧到新查询。
+        query_times = [
+            now - offset
+            for offset in sorted({int(item) for item in offsets}, reverse=True)
+        ]
+    elif scenario in ('cpu', 'memory') and n is None and step is None:
+        # CPU/内存默认：10 分钟前、5 分钟前、3 分钟前、1 分钟前、30 秒前和当前。
+        query_times = [
+            now - offset
+            for offset in settings.SNAPSHOT_CPU_MEM_OFFSETS
+        ]
+    else:
+        # 兼容显式传入 n/step 的调用，以及磁盘的均匀窗口。
+        if scenario == 'disk':
+            n = n or settings.SNAPSHOT_DISK_N
+            step = step or settings.SNAPSHOT_DISK_STEP
+        else:
+            n = n or len(settings.SNAPSHOT_CPU_MEM_OFFSETS)
+            step = step or 60
+
+        end = now - settings.SNAPSHOT_DELAY
+        query_times = [
+            end - (n - 1 - i) * step
+            for i in range(n)
+        ]
+
     snapshots = []
-    for i in range(n):
-        t = now - (n - 1 - i) * step
+    for t in query_times:
         ts = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t))
         try:
             content = func(instance, t)
         except Exception as e:
             content = f'[采集异常: {e}]'
+
+        # 网络吞吐是所有场景的公共上下文，默认附带
+        network = _network_snapshot(instance, t)
+        if network:
+            content = f'{content}\n\n{network}'
+
         snapshots.append({'timestamp': ts, 'content': content})
 
     return snapshots
