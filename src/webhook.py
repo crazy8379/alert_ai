@@ -1,63 +1,130 @@
-"""webhook.py — 处理 Alertmanager 告警的编排逻辑"""
-from dedup import is_in_cooldown, mark_cooldown
-from models import Alert
-from prom_client import VALID_SCENARIOS, get_snapshots
-from prompt import build_prompt
+"""webhook.py — 两段式告警处理：先发基础通知，再异步补发 AI 分析。"""
+import atexit
+from concurrent.futures import ThreadPoolExecutor
+
 from ai import analyze
-from notifier import push_wecom
+from config import settings
+from models import Alert
+from notifier import push_alert, push_analysis, push_raw
+from prom_client import get_snapshots
+from prompt import build_combined_prompt
 
-from config import settings                       # ← 新增
-from rag import rag_service
+_SCENARIO_ORDER = ('cpu', 'memory', 'disk')
+_SCENARIO_KEYWORDS = (
+    ('cpu', 'cpu'),
+    ('mem', 'memory'),
+    ('memory', 'memory'),
+    ('disk', 'disk'),
+)
 
-def process_alerts(data: dict) -> None:
+# 基础通知和 AI 分析使用独立线程池，避免 AI 慢调用阻塞告警通知。
+_NOTIFY_POOL = ThreadPoolExecutor(
+    max_workers=settings.NOTIFY_WORKERS,
+    thread_name_prefix='alert-notify',
+)
+_ANALYSIS_POOL = ThreadPoolExecutor(
+    max_workers=settings.ANALYSIS_WORKERS,
+    thread_name_prefix='alert-ai',
+)
+
+atexit.register(_NOTIFY_POOL.shutdown, wait=False)
+atexit.register(_ANALYSIS_POOL.shutdown, wait=False)
+
+
+def _extract_scenarios(labels: dict) -> set[str]:
+    """遍历告警 labels，收集其中实际出现的指标场景。"""
+    scenarios = set()
+    for key, value in labels.items():
+        if str(key).lower() == 'instance':
+            continue
+        text = f'{key} {value}'.lower()
+        for keyword, scenario in _SCENARIO_KEYWORDS:
+            if keyword in text:
+                scenarios.add(scenario)
+    return scenarios
+
+
+def process_alerts(data: dict) -> int:
+    """解析并提交告警任务，不在请求线程中执行网络或 AI 调用。"""
     alerts = data.get('alerts', []) or []
     print(f'[webhook] 收到 {len(alerts)} 条告警')
 
+    accepted = 0
     for raw in alerts:
         try:
-            handle_one(raw)
+            if handle_one(raw):
+                accepted += 1
         except Exception as e:
-            print(f'[error] 处理告警失败: {e}')
+            print(f'[error] 提交告警失败: {e}')
+    return accepted
 
 
-def handle_one(raw: dict) -> None:
+def _push_raw_safe(alert: Alert) -> None:
+    try:
+        if not push_raw(alert):
+            print(f'[notify] 告警转发失败: {alert.alertname}')
+    except Exception as e:
+        print(f'[notify] 告警转发异常: {e}')
+
+
+def handle_one(raw: dict) -> bool:
     alert = Alert.from_raw(raw)
-    print(f'[alert] {alert.alertname} | {alert.instance} | scenario={alert.scenario}')
+    labels = raw.get('labels') or {}
+    scenarios = _extract_scenarios(labels)
 
-    # 1. 场景校验
-    if alert.scenario not in VALID_SCENARIOS:
-        print(f'[skip] 未知场景: {alert.scenario}')
-        return
+    if not scenarios:
+        # 非资源类告警（服务存活、外部探测等）不接 AI，但必须转发，避免 P0 告警被静默丢弃。
+        print(f'[passthrough] 未匹配到 cpu/memory/disk，直接转发: {alert.alertname}')
+        _NOTIFY_POOL.submit(_push_raw_safe, alert)
+        return True
+
     if not alert.instance:
-        print('[skip] 缺少 instance')
+        print('[skip] 缺少 instance，无法采集指标')
+        return False
+
+    ordered_scenarios = [s for s in _SCENARIO_ORDER if s in scenarios]
+    alert.scenario = ','.join(ordered_scenarios)
+    print(f'[alert] {alert.alertname} | {alert.instance} | scenarios={alert.scenario}')
+
+    _NOTIFY_POOL.submit(_send_base_then_analyze, alert, ordered_scenarios)
+    return True
+
+
+def _send_base_then_analyze(alert: Alert, scenarios: list[str]) -> None:
+    """第一阶段：发送基础告警；成功后立即进入第二阶段分析。"""
+    try:
+        base_ok = push_alert(alert)
+    except Exception as e:
+        print(f'[notify] 基础告警异常: {e}')
         return
 
-    # 2. 去重（只读，不写）
-    if is_in_cooldown(alert.fingerprint):
-        print(f'[dedup] 冷却中，跳过: {alert.fingerprint}')
+    if not base_ok:
+        print('[notify] 基础告警发送失败')
         return
 
-    # 3. 拉 Prometheus 快照
-    snapshots = get_snapshots(alert.instance, alert.scenario)
-    print(f'[prom] 拉到 {len(snapshots)} 个时间点')
+    print('[notify] 基础告警已发送，开始 AI 分析')
 
-    # >>>>>> 新增：向量语义检索 <<<<<<
-    # 构造检索 query：用告警名称 + 摘要 + 场景，这是最能代表当前故障的文本
-    query = f"{alert.alertname} {alert.scenario} {alert.summary}"
-    context = rag_service.retrieve(query, k=settings.RAG_TOP_K)
-    print(f'[rag] 向量检索命中，上下文长度: {len(context)}')
+    try:
+        _ANALYSIS_POOL.submit(_analyze_and_notify, alert, scenarios)
+    except Exception as e:
+        print(f'[ai] 提交分析任务失败: {e}')
 
-    # 4. 组装 prompt
-    prompt = build_prompt(alert.scenario, alert, snapshots, context)
 
-    # 5. 调 AI
-    advice = analyze(prompt)
+def _analyze_and_notify(alert: Alert, scenarios: list[str]) -> None:
+    """第二阶段：拉取指标、调用 AI，成功后补发分析版消息。"""
+    try:
+        snapshots = {
+            scenario: get_snapshots(alert.instance, scenario)
+            for scenario in scenarios
+        }
+        prompt = build_combined_prompt([alert], snapshots)
+        advice = analyze(prompt)
 
-    # 6. 推企微
-    ok = push_wecom(alert, advice)
+        if not advice:
+            print(f'[ai] 未生成分析结果，基础告警已发送: {alert.fingerprint}')
+            return
 
-    # 7. 只有推送成功才标记冷却，失败可重试
-    if ok:
-        mark_cooldown(alert.fingerprint)
-    else:
-        print('[webhook] 推送失败，本次不标记冷却，下轮告警可重试')
+        if not push_analysis(alert, advice):
+            print(f'[notify] AI 分析补发失败: {alert.fingerprint}')
+    except Exception as e:
+        print(f'[ai] 分析链路异常，基础告警已发送: {e}')
