@@ -36,12 +36,22 @@ class Settings:
             'SNAPSHOT_CPU_MEM_OFFSETS',
             '600,300,180,60,30,0',
         )
+
+        # 1. 先准备一个空集合(用集合是为了自动去重)
+        offsets = set()
+
+        # 2. 把字符串按逗号切开,逐项处理
+        for item in raw_offsets.split(','):
+            item = item.strip()  # 去掉前后空格
+            if not item:  # 空项就跳过
+                continue
+            offsets.add(int(item))  # 转成整数,加入集合
+
+        # 3. 从大到小排序,转成元组
         self.SNAPSHOT_CPU_MEM_OFFSETS = tuple(
-            sorted(
-                {int(item.strip()) for item in raw_offsets.split(',') if item.strip()},
-                reverse=True,
-            )
+            sorted(offsets, reverse=True)
         )
+
         # 磁盘使用均匀窗口
         self.SNAPSHOT_DELAY = int(os.getenv('SNAPSHOT_DELAY', '30'))
         self.SNAPSHOT_DISK_N = int(os.getenv('SNAPSHOT_DISK_N', '7'))
